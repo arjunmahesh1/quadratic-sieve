@@ -1,5 +1,15 @@
 import math
+import random
 from typing import List, Tuple
+
+def primes_up_to(n: int) -> List[int]:
+    sieve = [True] * (n + 1)
+    sieve[0:2] = [False, False]
+    for p in range(2, int(n**0.5) + 1):
+        if sieve[p]:
+            for multiple in range(p*p, n+1, p):
+                sieve[multiple] = False
+    return [p for p, is_prime in enumerate(sieve) if is_prime]
 
 def trial_division(n: int, bound: int = 100) -> Tuple[int, List[int]]:
     """
@@ -7,18 +17,55 @@ def trial_division(n: int, bound: int = 100) -> Tuple[int, List[int]]:
     - returns the remaining cofactor and a list of removed small primes.
     (this is good if the number is large and has small prime factors)
     """
-    # TODO: just trial division
-    pass
+    # trial division
+    cofactor = n
+    small_factors: List[int] = []
+    for p in primes_up_to(bound):
+        while cofactor % p == 0:
+            cofactor //= p
+            small_factors.append(p)
+
+    return cofactor, small_factors
 
 
-def is_probable_prime(n: int) -> bool:
+def is_probable_prime(n: int, k: int=5) -> bool:
     """
     - perform a strong probable-prime test on n.
     - returns True if n is (probably) prime, False otherwise
     (this is for optimization, faster than whole algorithm and if works then speed-up)
     """
-    # TODO: implement a Miller-Rabin test
-    pass
+    # Miller-Rabin test
+    if n < 2:
+        return False
+    
+    # small primes trial
+    small_primes = [2, 3, 5, 7, 11, 13, 17, 19, 23]
+    for p in small_primes:
+        if n == p:
+            return True
+        if n % p == 0:
+            return False
+        
+    # write n - 1 as 2^s * d
+    d, s = n - 1, 0
+    while d % 2 == 0:
+        d //= 2
+        s += 1
+
+    # witness loop
+    for _ in range(k):
+        a = random.randrange(2, n - 1)
+        x = pow(a, d, n)
+        if x == 1 or x == n - 1:
+            continue
+        for __ in range(s - 1):
+            x = pow(x, 2, n)
+            if x == n - 1:
+                break
+        else:
+            return False
+        
+    return True
 
 
 # factor-base generation
@@ -28,8 +75,12 @@ def legendre_symbol(a: int, p: int) -> int:
     - this is to check if x^2 = a mod p has a solution 
     - compute the Legendre symbol (a|p) for odd prime p.
     """
-    # TODO: implement Euler criterion from article or use built-in
-    pass
+    # Euler criterion from article or use built-in
+    ls = pow(a % p, (p - 1) // 2, p)
+    if ls == p - 1:
+        return -1
+    
+    return ls
 
 
 def generate_factor_base(n: int, B: int) -> List[int]:
@@ -37,9 +88,19 @@ def generate_factor_base(n: int, B: int) -> List[int]:
     - build the factor base: all primes p <= B such that n is a quadratic residue mod p.
     - uses legendre_symbol to check if (n|p) = 1 and keeps if so.
     """
-    factor_base = []
-    # TODO: sieve primes up to B, check (n|p) = 1
-    return factor_base
+    # sieve primes up to B, check (n|p) = 1
+
+    fb: List[int] = []
+    for p in primes_up_to(B):
+        if p == 2:
+            # include 2 if n is odd
+            if n % 2 == 1:
+                fb.append(2)
+        else:
+            if legendre_symbol(n, p) == 1:
+                fb.append(p)
+
+    return fb
 
 
 # Sieve part
@@ -52,13 +113,27 @@ def find_relations(n: int,
     - returns a list of tuples (x, exponent_vector).
 
     """
-    relations = []
-    # TODO: this is how i think it will go
+    relations: List[Tuple[int, List[int]]] = []
+    # this is how i think it will go
     #   for x from ceil(sqrt(n)) up:
     #   compute y = x^2 - n
     #   for each p in factor_base, divide y by p repeatedly
     #   if remainder is +-1, record exponent vector
     #   stop when len(relations) >= required
+
+    x = math.isqrt(n) + 1
+    while len(relations) < required:
+        y = x*x - n
+        val = abs(y)
+        exponents = [0] * len(factor_base)
+        for i, p in enumerate(factor_base):
+            while val % p == 0:
+                val //= p
+                exponents[i] += 1
+        if val == 1:
+            relations.append((x, exponents))
+        x += 1
+
     return relations
 
 # matrix and linear algebra stuff
@@ -68,8 +143,9 @@ def build_matrix(relations: List[Tuple[int, List[int]]]) -> List[List[int]]:
     - build a binary matrix (mod 2) from the exponent vectors in relations 
     - rows correspond to relations, columns to factor_base primes
     """
-    # TODO: extract exponent vectors, reduce mod 2
-    pass
+    # extract exponent vectors, reduce mod 2
+    
+    return [[e % 2 for e in exponents] for _, exponents in relations]
 
 
 def gaussian_elimination_mod2(matrix: List[List[int]]) -> List[int]:
@@ -79,14 +155,66 @@ def gaussian_elimination_mod2(matrix: List[List[int]]) -> List[int]:
     combine to give an even exponent combination.
     - MAKE SURE this is done mod 2
     """
-    # TODO: implement bit-packed elimination or simple list-of-lists version
-    pass
+    # implement bit-packed elimination or simple list-of-lists version
+    rows = len(matrix)
+    cols = len(matrix[0]) if rows > 0 else 0
+
+    # Transpose to equations A * sol = 0, where A is (cols x rows)
+    A = [[matrix[r][c] for r in range(rows)] for c in range(cols)]
+    pivot_rows = {}
+    r = 0
+
+    # forward eliminate to RREF
+    for c in range(rows):
+        if r >= cols:
+            break
+        sel = None
+        for i in range(r, cols):
+            if A[i][c] == 1:
+                sel = i
+                break
+        if sel is None:
+            continue
+        A[r], A[sel] = A[sel], A[r]
+        pivot_rows[r] = c
+
+        # eliminate in all other rows
+        for i in range(cols):
+            if i != r and A[i][c] == 1:
+                for j in range(rows):
+                    A[i][j] ^= A[r][j]
+        r += 1
+
+    # find free variable
+    pivot_cols = set(pivot_rows.values())
+    free = None
+    for var in range(rows):
+        if var not in pivot_cols:
+            free = var
+            break
+    if free is None:
+        raise ValueError("No nontrivial nullspace found")
+    
+    # build solution
+    sol = [0] * rows
+    sol[free] = 1
+
+    # back-substitute for pivots
+    for pr, pc in reversed(pivot_rows.items()):
+        s = 0
+        for j in range(rows):
+            if j != pc and A[pr][j] == 1 and sol[j] == 1:
+                s ^= 1
+        sol[pc] = s
+
+    return sol
 
 
 
 # square-Root & GCD Extraction
 
 def recover_squares(n: int,
+                    fb: List[int],
                     relations: List[Tuple[int, List[int]]],
                     combination: List[int]) -> Tuple[int, int]:
     """
@@ -96,8 +224,29 @@ def recover_squares(n: int,
     where y_i = x_i^2 - n.
     - returns (A, B).
     """
-    # TODO: multiply selected x_i, reconstruct B from exponent sums
-    pass
+    # multiply selected x_i, reconstruct B from exponent sums
+
+    fb_size = len(relations[0][1])
+
+    # A = prod x_i
+    A = 1
+    for include, (x, _) in zip(combination, relations):
+        if include:
+            A = (A * x) % n
+
+    # aggregate exponents
+    exp_sum = [0] * fb_size
+    for include, (_, exponents) in zip(combination, relations):
+        if include:
+            for i in range(fb_size):
+                exp_sum[i] += exponents[i]
+
+    # B = prod p_i^(exp_sum[i]//2)
+    B = 1
+    for p, e in zip(fb, exp_sum):
+        B = (B * pow(p, e // 2, n)) % n
+
+    return A, B
 
 
 def extract_factor(n: int, A: int, B: int) -> Tuple[int, int]:
@@ -105,14 +254,21 @@ def extract_factor(n: int, A: int, B: int) -> Tuple[int, int]:
     - compute gcd(A - B, n) and gcd(A + B, n).
      -return any nontrivial factor pair (g, n//g).
     """
-    # TODO: probably use math.gcd if we are allowed
-    pass
+    
+    g = math.gcd(A - B, n)
+    if 1 < g < n:
+        return g, n // g
+    g = math.gcd(A + B, n)
+    if 1 < g < n:
+        return g, n // g
+    
+    raise ValueError("Failed to extract nontrivial factor")
 
 
 # putting together
 
 def quadratic_sieve(n: int,
-                     B: int,
+                     B: int=1000,
                       extra: int = 5) -> Tuple[int, int]:
     """
     - main function:
@@ -123,9 +279,11 @@ def quadratic_sieve(n: int,
     returns a nontrivial factor pair (p, q) with p*q = n.
     """
     # 1) trial division and primality check
-    cofactor, small_primes = trial_division(n)
+    cofactor, smalls = trial_division(n, B)
+    if cofactor == 1:
+        return n, 1
     if is_probable_prime(cofactor):
-        return (cofactor, 1)
+        return cofactor, n // cofactor
 
     # 2)  factor base
     fb = generate_factor_base(cofactor, B)
@@ -139,7 +297,8 @@ def quadratic_sieve(n: int,
     combination = gaussian_elimination_mod2(M)
 
     # 5) get squares and extract factors
-    A, Bval = recover_squares(cofactor, relations, combination)
+    A, Bval = recover_squares(cofactor, fb, relations, combination)
+
     return extract_factor(cofactor, A, Bval)
 
 
@@ -152,6 +311,9 @@ if __name__ == "__main__":
     n = int(sys.argv[1])
     B = int(sys.argv[2]) if len(sys.argv) >= 3 else 1000
 
-    p, q = quadratic_sieve(n, B)
-    print(f"factors of {n}: {p} * {q}")
+    try:
+        p, q = quadratic_sieve(n, B)
+        print(f"Factors of {n}: {p} * {q}")
+    except Exception as e:
+        print(f"Failed: {e}")
     
