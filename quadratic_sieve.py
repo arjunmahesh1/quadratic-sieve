@@ -279,11 +279,30 @@ def quadratic_sieve(n: int,
     returns a nontrivial factor pair (p, q) with p*q = n.
     """
     # 1) trial division and primality check
+    # fixed commented out part with code below
+    '''
     cofactor, smalls = trial_division(n, B)
     if cofactor == 1:
         return n, 1
     if is_probable_prime(cofactor):
         return cofactor, n // cofactor
+    '''
+
+    # 1) pull off all primes <= B
+    cofactor, smalls = trial_division(n, B)
+
+    # 1a) if trial division completely factors n, peel off one small prime and return it
+    if cofactor == 1:
+        p = smalls[0]
+        return p, n // p
+
+    # 1b) if whatever remains is prime, return (product of smalls, cofactor)
+    if is_probable_prime(cofactor):
+        small_prod = 1
+        for p in smalls:
+            small_prod *= p
+        return small_prod, cofactor
+
 
     # 2)  factor base
     fb = generate_factor_base(cofactor, B)
@@ -316,4 +335,6 @@ if __name__ == "__main__":
         print(f"Factors of {n}: {p} * {q}")
     except Exception as e:
         print(f"Failed: {e}")
+
+    
     
