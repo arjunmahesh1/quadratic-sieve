@@ -166,6 +166,7 @@ def gaussian_elimination_mod2(matrix: List[List[int]]) -> List[int]:
 
     # forward eliminate to RREF
     for c in range(rows):
+    #for c in range(cols):
         if r >= cols:
             break
         sel = None
@@ -180,6 +181,7 @@ def gaussian_elimination_mod2(matrix: List[List[int]]) -> List[int]:
 
         # eliminate in all other rows
         for i in range(cols):
+        #for i in range(rows):
             if i != r and A[i][c] == 1:
                 for j in range(rows):
                     A[i][j] ^= A[r][j]
@@ -297,7 +299,7 @@ def quadratic_sieve(n: int,
         return p, n // p
 
     # 1b) if whatever remains is prime, return (product of smalls, cofactor)
-    if is_probable_prime(cofactor):
+    if is_probable_prime(cofactor, k=20):
         small_prod = 1
         for p in smalls:
             small_prod *= p
@@ -306,7 +308,8 @@ def quadratic_sieve(n: int,
 
     # 2)  factor base
     fb = generate_factor_base(cofactor, B)
-
+    if not fb:
+        raise ValueError(f"No factor base primes ≤ {B} make n a quadratic residue; increase B")
     # 3) collect relations
     num_relations = len(fb) + extra
     relations = find_relations(cofactor, fb, num_relations)
@@ -323,6 +326,7 @@ def quadratic_sieve(n: int,
 
 if __name__ == "__main__":
     import sys
+    import time
     if len(sys.argv) < 2:
         print("Usage: python3 quadratic_sieve.py <n> [B]")
         sys.exit(1)
@@ -330,11 +334,15 @@ if __name__ == "__main__":
     n = int(sys.argv[1])
     B = int(sys.argv[2]) if len(sys.argv) >= 3 else 1000
 
+    start = time.perf_counter()
     try:
         p, q = quadratic_sieve(n, B)
+        elapsed = time.perf_counter() - start
         print(f"Factors of {n}: {p} * {q}")
+        print(f"Elapsed time: {elapsed:.3f} seconds")
     except Exception as e:
-        print(f"Failed: {e}")
+        elapsed = time.perf_counter() - start
+        print(f"Failed after {elapsed:.3f} seconds: {e}")
 
     
     
