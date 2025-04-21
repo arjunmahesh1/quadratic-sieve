@@ -11,6 +11,16 @@ def primes_up_to(n: int) -> List[int]:
                 sieve[multiple] = False
     return [p for p, is_prime in enumerate(sieve) if is_prime]
 
+def estimate_optimal_B(n: int) -> int:
+    """
+    Heuristic to estimate the optimal factor base bound B
+    B = exp(0.5 * sqrt(ln(n) * ln(ln(n))))
+    (run with just n to auto-generate B)
+    """
+    ln_n = math.log(n)
+
+    return max(10, int(math.exp(0.5 * math.sqrt(ln_n * math.log(ln_n)))))
+
 def trial_division(n: int, bound: int = 100) -> Tuple[int, List[int]]:
     """
     - remove all prime factors <= bound from n by trial division.
@@ -332,7 +342,11 @@ if __name__ == "__main__":
         sys.exit(1)
 
     n = int(sys.argv[1])
-    B = int(sys.argv[2]) if len(sys.argv) >= 3 else 1000
+    if len(sys.argv) >= 3:
+        B = int(sys.argv[2])
+    else:
+        B = estimate_optimal_B(n)
+        print(f"Auto‐selected factor‐base bound B = {B}")
 
     start = time.perf_counter()
     try:
