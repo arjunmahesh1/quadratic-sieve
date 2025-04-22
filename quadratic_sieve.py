@@ -99,17 +99,12 @@ def generate_factor_base(n: int, B: int) -> List[int]:
     - uses legendre_symbol to check if (n|p) = 1 and keeps if so.
     """
     # sieve primes up to B, check (n|p) = 1
-
-    fb: List[int] = []
+    fb = [-1]  
     for p in primes_up_to(B):
         if p == 2:
-            # include 2 if n is odd
-            if n % 2 == 1:
-                fb.append(2)
-        else:
-            if legendre_symbol(n, p) == 1:
-                fb.append(p)
-
+            fb.append(2)  
+        elif legendre_symbol(n, p) == 1:
+            fb.append(p)
     return fb
 
 
@@ -134,16 +129,21 @@ def find_relations(n: int,
     x = math.isqrt(n) + 1
     while len(relations) < required:
         y = x*x - n
-        val = abs(y)
         exponents = [0] * len(factor_base)
-        for i, p in enumerate(factor_base):
+        if y < 0:
+            exponents[0] = 1  # Exponent of -1 is 1 if y is negative
+            val = -y
+        else:
+            exponents[0] = 0
+            val = y
+        for i in range(1, len(factor_base)):  # Start from 1, skip -1
+            p = factor_base[i]
             while val % p == 0:
                 val //= p
                 exponents[i] += 1
         if val == 1:
             relations.append((x, exponents))
         x += 1
-
     return relations
 
 # matrix and linear algebra stuff
@@ -255,9 +255,10 @@ def recover_squares(n: int,
 
     # B = prod p_i^(exp_sum[i]//2)
     B = 1
-    for p, e in zip(fb, exp_sum):
-        B = (B * pow(p, e // 2, n)) % n
-
+    for i in range(1, len(fb)):  
+        p = fb[i]
+        e = exp_sum[i] // 2
+        B = (B * pow(p, e, n)) % n
     return A, B
 
 
@@ -299,10 +300,10 @@ def quadratic_sieve(n: int,
     if is_probable_prime(cofactor):
         return cofactor, n // cofactor
     '''
-    MIN_B = 10000
-    if B < MIN_B:
-        B = MIN_B
-        print(f"B is too small; setting to MIN_B = {MIN_B}")
+    # MIN_B = 10000
+    # if B < MIN_B:
+    #     B = MIN_B
+    #     print(f"B is too small; setting to MIN_B = {MIN_B}")
 
     # 1) pull off all primes <= B
     cofactor, smalls = trial_division(n, B)
@@ -355,7 +356,7 @@ if __name__ == "__main__":
     else:
         B = estimate_optimal_B(n)
         # don’t let B be too small
-        MIN_B = 100
+        MIN_B = 1000
         if B < MIN_B:
             print(f"Auto‐selected B = {B} is too small; bumping up to MIN_B = {MIN_B}")
             B = MIN_B
