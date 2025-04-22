@@ -364,9 +364,15 @@ if __name__ == "__main__":
     for p in smalls:
         small_prod *= p
 
-    # 2) if that consumed everything, we’re done
+    # 2) If trial division completely factors n, split into two factors
     if cofactor == 1:
-        print(f"Factors of {n}: {small_prod} * 1")
+        if not smalls:
+            print(f"Factors of {n}: 1 * 1")
+        else:
+            # Split into first prime and the product of the rest
+            p = smalls[0]
+            q = n // p
+            print(f"Factors of {n}: {p} * {q}")
         sys.exit(0)
 
     # 3) if what remains is prime, combine
@@ -380,17 +386,16 @@ if __name__ == "__main__":
         p_co, q_co = quadratic_sieve(cofactor, B)
         elapsed = time.perf_counter() - start
 
-        # 5) merge small primes back into the smaller cofactor factor
-        if p_co < q_co:
-            f1, f2 = small_prod * p_co, q_co
-        else:
-            f1, f2 = small_prod * q_co, p_co
+        f1 = small_prod * p_co
+        f2 = q_co
 
+        if f1 > f2:
+            f1, f2 = f2, f1
         print(f"Factors of {n}: {f1} * {f2}")
-        print(f"Elapsed time: {elapsed:.3f} seconds")
+        print(f"Elapsed time: {elapsed:.3f} seconds")
     except Exception as e:
         elapsed = time.perf_counter() - start
-        print(f"Failed after {elapsed:.3f} seconds: {e}")
+        print(f"Failed after {elapsed:.3f} seconds: {e}")
 
     
     
