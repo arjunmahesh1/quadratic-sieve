@@ -316,10 +316,14 @@ def quadratic_sieve(n: int,
         return small_prod, cofactor
 
 
-    # 2)  factor base
+    # 2) build factor base, and if it’s too tiny keep doubling B
     fb = generate_factor_base(cofactor, B)
-    if not fb:
-        raise ValueError(f"No factor base primes ≤ {B} make n a quadratic residue; increase B")
+    MIN_FB_SIZE = 5
+    while len(fb) < MIN_FB_SIZE:
+        B *= 2
+        print(f"Factor base too small (size={len(fb)}); doubling B to {B}")
+        fb = generate_factor_base(cofactor, B)
+
     # 3) collect relations
     num_relations = len(fb) + extra
     relations = find_relations(cofactor, fb, num_relations)
@@ -346,13 +350,43 @@ if __name__ == "__main__":
         B = int(sys.argv[2])
     else:
         B = estimate_optimal_B(n)
-        print(f"Auto‐selected factor‐base bound B = {B}")
+        # don’t let B be too small
+        MIN_B = 100
+        if B < MIN_B:
+            print(f"Auto‐selected B = {B} is too small; bumping up to MIN_B = {MIN_B}")
+            B = MIN_B
+        else:
+            print(f"Auto‐selected factor‐base bound B = {B}")
 
+    # 1) pull off all small primes <= B
+    cofactor, smalls = trial_division(n, B)
+    small_prod = 1
+    for p in smalls:
+        small_prod *= p
+
+    # 2) if that consumed everything, we’re done
+    if cofactor == 1:
+        print(f"Factors of {n}: {small_prod} * 1")
+        sys.exit(0)
+
+    # 3) if what remains is prime, combine
+    if is_probable_prime(cofactor, k=20):
+        print(f"Factors of {n}: {small_prod} * {cofactor}")
+        sys.exit(0)
+
+    # 4) otherwise sieve to split the cofactor
     start = time.perf_counter()
     try:
-        p, q = quadratic_sieve(n, B)
+        p_co, q_co = quadratic_sieve(cofactor, B)
         elapsed = time.perf_counter() - start
-        print(f"Factors of {n}: {p} * {q}")
+
+        # 5) merge small primes back into the smaller cofactor factor
+        if p_co < q_co:
+            f1, f2 = small_prod * p_co, q_co
+        else:
+            f1, f2 = small_prod * q_co, p_co
+
+        print(f"Factors of {n}: {f1} * {f2}")
         print(f"Elapsed time: {elapsed:.3f} seconds")
     except Exception as e:
         elapsed = time.perf_counter() - start
