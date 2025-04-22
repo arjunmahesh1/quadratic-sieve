@@ -299,6 +299,10 @@ def quadratic_sieve(n: int,
     if is_probable_prime(cofactor):
         return cofactor, n // cofactor
     '''
+    MIN_B = 10000
+    if B < MIN_B:
+        B = MIN_B
+        print(f"B is too small; setting to MIN_B = {MIN_B}")
 
     # 1) pull off all primes <= B
     cofactor, smalls = trial_division(n, B)
